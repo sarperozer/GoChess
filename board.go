@@ -1,20 +1,13 @@
 package main
 
 import (
+	"fmt"
 	"image/color"
 
 	"github.com/hajimehoshi/ebiten/v2"
+	"github.com/hajimehoshi/ebiten/v2/inpututil"
 	"github.com/hajimehoshi/ebiten/v2/vector"
 )
-
-type Square struct {
-	x int
-	y int
-}
-
-const width = 800
-const height = 800
-const squareSize = 100
 
 var board = [8][8]*Piece{
 	{
@@ -63,7 +56,7 @@ var board = [8][8]*Piece{
 	},
 }
 
-func drawBoard(screen *ebiten.Image) {
+func DrawBoard(screen *ebiten.Image) {
 	w := true
 	for i, e := range board {
 		for j, _ := range e {
@@ -78,5 +71,20 @@ func drawBoard(screen *ebiten.Image) {
 			}
 		}
 		w = !w
+	}
+}
+
+func CheckSelectedSquare() {
+	if selectedPiece != nil && inpututil.IsMouseButtonJustPressed(ebiten.MouseButton0) {
+		x, y := ebiten.CursorPosition()
+		if x > width {
+			return
+		}
+		selectedSquare.x = x / 100
+		selectedSquare.y = y / 100
+		fmt.Printf("Selected square at: %d, %d\n", selectedSquare.x, selectedSquare.y)
+		fmt.Printf("Selected piece at: %d, %d\n", selectedPiece.posX, selectedPiece.posY)
+
+		canPieceMoveSelectedSquare(selectedPiece, &selectedSquare)
 	}
 }

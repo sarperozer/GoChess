@@ -1,9 +1,7 @@
 package main
 
 import (
-	"fmt"
 	"log"
-	"math"
 	"os"
 	"path/filepath"
 
@@ -20,11 +18,17 @@ type Piece struct {
 	isMoved    bool
 }
 
+type Square struct {
+	x int
+	y int
+}
+
 var (
 	selectedPiece  *Piece
 	selectedSquare Square
 )
 
+// init initializes images for the pieces
 func init() {
 	cd, err := os.Getwd()
 
@@ -32,7 +36,6 @@ func init() {
 		log.Fatal(err)
 	}
 
-	// Initializing images
 	for _, line := range board {
 		for _, piece := range line {
 			if piece == nil {
@@ -103,8 +106,8 @@ func init() {
 	}
 }
 
-// drawPieces draws the pieces into center of their current square
-func drawPieces(screen *ebiten.Image) {
+// DrawPieces draws the pieces into center of their current square
+func DrawPieces(screen *ebiten.Image) {
 	for _, line := range board {
 		for _, piece := range line {
 			if piece != nil && piece.img != nil {
@@ -131,16 +134,20 @@ func drawPieces(screen *ebiten.Image) {
 	}
 }
 
-// checkSelectedPiece checks if user selected a piece to move
-func checkSelectedPiece() {
+// CheckSelectedPiece checks if user selected a piece to move
+func CheckSelectedPiece() {
 	if inpututil.IsMouseButtonJustPressed(ebiten.MouseButton0) {
 		x, y := ebiten.CursorPosition()
-		x /= 100
-		y /= 100
+
+		if x > width {
+			return
+		}
+		x /= squareSize
+		y /= squareSize
 
 		for _, line := range board {
 			for _, piece := range line {
-				if piece != nil && x == piece.posX && y == piece.posY {
+				if piece != nil && x == piece.posX && y == piece.posY && piece.color == turn {
 					selectedPiece = piece
 					//fmt.Printf("%c\n", selectedPiece.nameCode)
 					return
@@ -148,219 +155,4 @@ func checkSelectedPiece() {
 			}
 		}
 	}
-}
-
-func checkSelectedSquare() {
-	if selectedPiece != nil && inpututil.IsMouseButtonJustPressed(ebiten.MouseButton0) {
-		x, y := ebiten.CursorPosition()
-		selectedSquare.x = x / 100
-		selectedSquare.y = y / 100
-		//fmt.Printf("Selected square at: %d, %d", selectedSquare.x, selectedSquare.y)
-
-		canPieceMoveSelectedSquare(selectedPiece, &selectedSquare)
-	}
-}
-
-func canPieceMoveSelectedSquare(p *Piece, selectedSquare *Square) {
-
-	switch p.nameCode {
-	case 'P':
-		if canPawnMove(p, selectedSquare) {
-			movePiece(p, selectedSquare)
-		}
-	case 'R':
-		if canRookMove(p, selectedSquare) {
-			movePiece(p, selectedSquare)
-		}
-	case 'K':
-		if canKnightMove(p, selectedSquare) {
-			movePiece(p, selectedSquare)
-		}
-	case 'B':
-		if canBishopMove(p, selectedSquare) {
-			movePiece(p, selectedSquare)
-		}
-	case 'Q':
-		if canQueenMove(p, selectedSquare) {
-			movePiece(p, selectedSquare)
-		}
-	case 'X':
-		if canKingMove(p, selectedSquare) {
-			movePiece(p, selectedSquare)
-		}
-	}
-}
-
-func canPawnMove(p *Piece, selectedSquare *Square) bool {
-	if p.color == false && selectedSquare.y == p.posY-1 && selectedSquare.x == p.posX {
-		return true
-	} else if p.color == false && selectedSquare.y == p.posY-2 && selectedSquare.x == p.posX && !p.isMoved {
-		return true
-	} else if p.color == true && selectedSquare.y == p.posY+1 && selectedSquare.x == p.posX {
-		return true
-	} else if p.color == true && selectedSquare.y == p.posY+2 && selectedSquare.x == p.posX && !p.isMoved {
-		return true
-	}
-	return false
-}
-
-func canRookMove(p *Piece, selectedSquare *Square) bool {
-
-	moveHorizontal := false
-	if p.posY == selectedSquare.y {
-		moveHorizontal = true
-	}
-	fmt.Printf("Selected piece: %d, %d, selected square: %d, %d\n", selectedPiece.posX, selectedPiece.posY, selectedSquare.x, selectedSquare.y)
-	//TODO: Change square select method, should piece be selected first then square
-	if (selectedSquare.x == p.posX && selectedSquare.y == p.posY) || (selectedSquare.x != p.posX && selectedSquare.y != p.posY) {
-		return false
-	}
-
-	if moveHorizontal && selectedSquare.x > p.posX && selectedSquare.y == p.posY { // Right Move
-		for j := p.posX + 1; j <= selectedSquare.x; j++ {
-			if board[p.posY][j] != nil {
-				return false
-			}
-		}
-	} else if moveHorizontal && selectedSquare.x < p.posX && selectedSquare.y == p.posY { // Left Move
-		for j := p.posX - 1; j >= selectedSquare.x; j-- {
-			if board[p.posY][j] != nil {
-				return false
-			}
-		}
-	} else if !moveHorizontal && selectedSquare.y < p.posY && selectedSquare.x == p.posX { // Up Move
-		for j := p.posY - 1; j >= selectedSquare.y; j-- {
-			if board[j][p.posX] != nil {
-				return false
-			}
-		}
-	} else if !moveHorizontal && selectedSquare.y > p.posY && selectedSquare.x == p.posX { // Down Move
-		for j := p.posY + 1; j <= selectedSquare.y; j++ {
-			if board[j][p.posX] != nil {
-				return false
-			}
-		}
-	}
-	return true
-}
-
-// This function can be implemented with a bunch of if statements without using extra space or loop, but this is much clearer I think
-func canKnightMove(p *Piece, selectedSquare *Square) bool {
-	type pair struct {
-		dx int
-		dy int
-	}
-	var possibleMoves = [8]*pair{
-		{1, -2}, {-1, -2}, // Upward move
-		{1, 2}, {-1, 2}, // Downward move
-		{2, -1}, {2, 1}, // Right move
-		{-2, -1}, {-2, 1}, // Left move
-	}
-	//TODO: Check if there is a piece at selected square
-	for _, move := range possibleMoves {
-		if p.posX+move.dx == selectedSquare.x && p.posY+move.dy == selectedSquare.y {
-			return true
-		}
-	}
-	return false
-}
-
-func canBishopMove(p *Piece, selectedSquare *Square) bool {
-	b := false
-	dx, dy := 0, 0
-
-	// Diagonal search for selected square
-	for i := 1; i <= 6; i++ {
-		if p.posX+i == selectedSquare.x && p.posY+i == selectedSquare.y {
-			b = true
-			dx = i
-			dy = i
-		} else if p.posX+i == selectedSquare.x && p.posY-i == selectedSquare.y {
-			b = true
-			dx = i
-			dy = -i
-		} else if p.posX-i == selectedSquare.x && p.posY+i == selectedSquare.y {
-			b = true
-			dx = -i
-			dy = i
-		} else if p.posX-i == selectedSquare.x && p.posY-i == selectedSquare.y {
-			b = true
-			dx = -i
-			dy = -i
-		}
-	}
-
-	if !b {
-		return false
-	}
-
-	if dx > 0 && dy > 0 {
-		for i := 1; i <= dx; i++ {
-			if board[p.posY+i][p.posX+i] != nil {
-				return false
-			}
-		}
-	} else if dx > 0 && dy < 0 {
-		for i := 1; i <= dx; i++ {
-			if board[p.posY-i][p.posX+i] != nil {
-				return false
-			}
-		}
-	} else if dx < 0 && dy > 0 {
-		for i := 1; i <= dy; i++ {
-			if board[p.posY+i][p.posX-i] != nil {
-				return false
-			}
-		}
-	} else {
-		for i := -1; i >= dx; i-- {
-			if board[p.posY+i][p.posX+i] != nil {
-				return false
-			}
-		}
-	}
-	return true
-}
-
-func canQueenMove(p *Piece, selectedSquare *Square) bool {
-	if canRookMove(p, selectedSquare) || canBishopMove(p, selectedSquare) {
-		return true
-	}
-	return false
-}
-
-func canKingMove(p *Piece, selectedSquare *Square) bool {
-	if p.posY == selectedSquare.y && (p.posX+1 == selectedSquare.x || p.posX-1 == selectedSquare.x) {
-		return true
-	} else if p.posX == selectedSquare.x && (p.posY+1 == selectedSquare.y || p.posY-1 == selectedSquare.y) {
-		return true
-	} else if math.Abs(float64(p.posX-selectedSquare.x)) == 1 && math.Abs(float64(p.posY-selectedSquare.y)) == 1 {
-		return true
-	}
-	return false
-}
-
-func movePiece(p *Piece, selectedSquare *Square) {
-	prevX, prevY := p.posX, p.posY // Initial positions for clearing the board
-	p.posX = selectedSquare.x
-	p.posY = selectedSquare.y
-
-	board[p.posY][p.posX] = p
-	board[prevY][prevX] = nil
-
-	for _, line := range board {
-		for _, p := range line {
-			if p == nil {
-				fmt.Printf("- ")
-				continue
-			}
-			fmt.Printf("%c, ", p.nameCode)
-		}
-		fmt.Println("")
-	}
-	fmt.Println("")
-
-	p.isMoved = true
-	selectedPiece = nil
-	selectedSquare = nil
 }
